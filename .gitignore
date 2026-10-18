@@ -1,0 +1,29 @@
+# dependencies
+node_modules
+
+# build output (`bun build --compile` binary)
+/novarum-amp
+out
+dist
+*.tgz
+
+# bot state: Novarum session token and message -> Amp thread map
+.data
+
+# secrets (keep .env.example committed)
+.env
+.env.*
+!.env.example
+
+# logs
+logs
+*.log
+
+# caches
+.cache
+*.tsbuildinfo
+
+# editors / OS
+.idea
+.vscode
+.DS_Store

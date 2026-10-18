@@ -1,0 +1,20 @@
+{
+  "name": "novarum-amp",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5"
+  },
+  "dependencies": {
+    "@ampcode/sdk": "^0.1.0-20260918210405-g81edbf0"
+  },
+  "trustedDependencies": [
+    "@ampcode/cli"
+  ],
+  "scripts": {
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}
