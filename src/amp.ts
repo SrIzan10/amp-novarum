@@ -1,5 +1,13 @@
 import { execute, type StreamMessage } from '@ampcode/sdk';
+import { rm } from 'node:fs/promises';
 import { config } from './config';
+
+export const EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type Effort = (typeof EFFORTS)[number];
+export const isEffort = (value: string): value is Effort => (EFFORTS as readonly string[]).includes(value);
+
+const EXTERNAL_AGENT = 'external-agent:';
+export const isExternalAgentMode = (mode: string | undefined) => Boolean(mode?.startsWith(EXTERNAL_AGENT));
 
 export interface RunCallbacks {
   /** Called once Amp has assigned the thread ID. */
@@ -27,27 +35,45 @@ function describe(message: StreamMessage): string | undefined {
   }
 }
 
-/** Runs one turn of Amp in an orb, starting a new thread or continuing `threadId`. */
+/** Runs one turn of Amp in an orb or on a runner, starting a new thread or continuing `threadId`. */
 export async function runAmp(
   prompt: string,
-  { threadId, title, signal }: { threadId?: string; title?: string; signal: AbortSignal },
+  { threadId, title, model, effort, signal }: { threadId?: string; title?: string; model?: string; effort?: Effort; signal: AbortSignal },
   callbacks: RunCallbacks
 ): Promise<RunResult> {
   let currentThread = threadId;
+  const external = isExternalAgentMode(config.ampMode);
+  // The CLI has no flags for an external agent's model and effort; it reads them from the
+  // externalAgent* defaults in its session.json, the ones the TUI's model picker sets. Each run
+  // gets its own data dir so concurrent runs don't overwrite each other's picks.
+  const dataHome = external ? `${config.dataDir}/amp-runs/${crypto.randomUUID()}` : undefined;
   try {
+    if (dataHome) {
+      await Bun.write(
+        `${dataHome}/amp/session.json`,
+        JSON.stringify({
+          externalAgentKey: config.ampMode!.slice(EXTERNAL_AGENT.length),
+          externalAgentModel: model,
+          externalAgentEffort: effort,
+        })
+      );
+    }
     for await (const message of execute({
       prompt,
       signal,
       options: {
-        executor: 'orb',
+        // A continued thread runs on its own executor (orb or runner) whatever is passed here.
+        ...(config.ampRunnerId && !threadId
+          ? { executor: 'runner' as const, runnerId: config.ampRunnerId, runnerDir: config.ampRunnerDir }
+          : { executor: 'orb' as const, project: threadId ? undefined : config.ampProject }),
         continue: threadId ?? false,
-        project: threadId ? undefined : config.ampProject,
         title: threadId ? undefined : title?.slice(0, 256),
         mode: config.ampMode,
+        effort: external ? undefined : effort,
         visibility: config.ampVisibility,
         labels: threadId ? undefined : ['novarum'],
         noArchiveAfterExecute: true,
-        env: { AMP_API_KEY: config.ampApiKey },
+        env: { AMP_API_KEY: config.ampApiKey, ...(dataHome && { XDG_DATA_HOME: dataHome }) },
       },
     })) {
       if (message.session_id && message.session_id !== currentThread) {
@@ -66,5 +92,7 @@ export async function runAmp(
   } catch (error) {
     if (signal.aborted) return { ok: false, threadId: currentThread, error: 'Stopped.' };
     return { ok: false, threadId: currentThread, error: error instanceof Error ? error.message : String(error) };
+  } finally {
+    if (dataHome) await rm(dataHome, { recursive: true, force: true }).catch(() => {});
   }
 }
