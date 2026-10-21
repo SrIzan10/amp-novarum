@@ -1,0 +1,52 @@
+diff --git a/dist/index.js b/dist/index.js
+index e9a6427b05ac77db42ffdea0fd3e0afb71b2b3fd..96460b3d78f1139b89c99a020acb4c9126e9c98e 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -3932,6 +3932,7 @@ var AmpOptionsSchema = objectType({
+   dangerouslyAllowAll: booleanType().describe("Allow all tool usage without asking for permission").optional(),
+   archive: booleanType().describe("Deprecated. New execute threads are archived by default.").optional(),
+   noArchiveAfterExecute: booleanType().describe("Leave new execute threads unarchived after execution completes").optional(),
++  attach: arrayType(stringType()).describe("Local files to upload and add to the message (remote executors only)").optional(),
+   visibility: VisibilitySchema.describe("Visibility level for new threads").default("workspace").optional(),
+   settingsFile: stringType().describe("Settings file path").optional(),
+   logLevel: enumType(["debug", "info", "warn", "error", "audit"]).describe("Log level").optional(),
+@@ -4439,6 +4440,11 @@ function buildCliArgs(options) {
+   if (options.dangerouslyAllowAll) {
+     args.push("--dangerously-allow-all");
+   }
++  if (options.attach) {
++    for (const file of options.attach) {
++      args.push("--attach", file);
++    }
++  }
+   if (options.noArchiveAfterExecute || options.archive === false) {
+     args.push("--no-archive-after-execute");
+   }
+diff --git a/dist/types.d.ts b/dist/types.d.ts
+index 6b522fad32093071cf2f30f14cb4a24dc918270b..3f33e9f3772f4e1d71f110bfaed8e40a93196a10 100644
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
+@@ -400,6 +400,7 @@ export declare const AmpOptionsSchema: z.ZodObject<{
+     dangerouslyAllowAll: z.ZodOptional<z.ZodBoolean>;
+     archive: z.ZodOptional<z.ZodBoolean>;
+     noArchiveAfterExecute: z.ZodOptional<z.ZodBoolean>;
++    attach: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+     visibility: z.ZodOptional<z.ZodDefault<z.ZodEnum<["private", "unlisted", "public", "workspace", "group"]>>>;
+     settingsFile: z.ZodOptional<z.ZodString>;
+     logLevel: z.ZodOptional<z.ZodEnum<["debug", "info", "warn", "error", "audit"]>>;
+@@ -524,6 +525,7 @@ export declare const AmpOptionsSchema: z.ZodObject<{
+     dangerouslyAllowAll?: boolean | undefined;
+     archive?: boolean | undefined;
+     noArchiveAfterExecute?: boolean | undefined;
++    attach?: string[] | undefined;
+     settingsFile?: string | undefined;
+     logLevel?: "debug" | "info" | "warn" | "error" | "audit" | undefined;
+     logFile?: string | undefined;
+@@ -572,6 +574,7 @@ export declare const AmpOptionsSchema: z.ZodObject<{
+     dangerouslyAllowAll?: boolean | undefined;
+     archive?: boolean | undefined;
+     noArchiveAfterExecute?: boolean | undefined;
++    attach?: string[] | undefined;
+     settingsFile?: string | undefined;
+     logLevel?: "debug" | "info" | "warn" | "error" | "audit" | undefined;
+     logFile?: string | undefined;

@@ -171,6 +171,12 @@ export class NovarumClient {
     await this.request('POST', '/message/delete', { channelId, messageId });
   }
 
+  async download(attachment: Attachment) {
+    const res = await fetch(new URL(attachment.url, config.novarumUrl), { headers: { cookie: this.cookie } });
+    if (!res.ok) throw new Error(`GET ${attachment.filename} -> ${res.status}`);
+    return res.arrayBuffer();
+  }
+
   async typing(channelId: string) {
     await this.request('POST', `/channel/${encodeURIComponent(channelId)}/typing`);
   }

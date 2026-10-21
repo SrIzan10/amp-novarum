@@ -1,6 +1,8 @@
+import { rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { config } from './config';
 import { EFFORTS, isEffort, isExternalAgentMode, runAmp, threadUrl, type Effort } from './amp';
-import { NovarumClient, handleOf, mentionHandles, type Message } from './novarum';
+import { NovarumClient, handleOf, mentionHandles, type Attachment, type Message } from './novarum';
 import { agentSettings, linkThread, setAgentSetting, threadFor } from './store';
 
 const novarum = new NovarumClient();
@@ -113,7 +115,31 @@ function threadInChain(message: Message, byId: Map<string, Message>) {
 
 const isOwn = (m: Message) => novarum.sentNonces.has(m.nonce);
 
-function buildPrompt(message: Message, request: string, history: Message[], threadId: string | undefined) {
+// Downloads files so the Amp CLI can upload them to the thread as attachments. Returns the ones
+// that made it, by local path; a file that fails to download stays a signed URL in the prompt.
+async function downloadAttachments(attachments: Attachment[], dir: string) {
+  const local = new Map<Attachment, string>();
+  for (const [i, attachment] of attachments.entries()) {
+    // One subdirectory per file keeps its original name, which is what Amp shows on the upload.
+    const path = resolve(dir, String(i), attachment.filename.replace(/[/\\]/g, '_') || 'file');
+    try {
+      await Bun.write(path, await novarum.download(attachment));
+      local.set(attachment, path);
+    } catch (error) {
+      console.warn(`Couldn't download ${attachment.filename}:`, error instanceof Error ? error.message : error);
+    }
+  }
+  return local;
+}
+
+function buildPrompt(
+  message: Message,
+  request: string,
+  history: Message[],
+  threadId: string | undefined,
+  attachments: Attachment[],
+  uploaded: Map<Attachment, string>
+) {
   const byId = new Map(history.map((m) => [m.id, m]));
   const chain = replyChain(message, byId);
   const lines: string[] = [];
@@ -146,9 +172,13 @@ function buildPrompt(message: Message, request: string, history: Message[], thre
     }
   }
 
-  const files = message.attachments.map((a) => `- ${a.filename} (${a.contentType}): ${new URL(a.url, config.novarumUrl)}`);
+  const files = attachments.map(
+    (a) => `- ${a.filename} (${a.contentType}): ${uploaded.has(a) ? 'attached to this message' : new URL(a.url, config.novarumUrl)}`
+  );
   lines.push(`Request from ${displayName(message.author)}:`, request || '(no text; see context above)');
-  if (files.length) lines.push('', 'Attached files (signed URLs, fetch them if relevant):', ...files);
+  if (files.length) {
+    lines.push('', 'Files on the request and the message it replies to (signed URLs, fetch them if relevant):', ...files);
+  }
   return lines.join('\n');
 }
 
@@ -168,7 +198,8 @@ async function handle(message: Message) {
   }
 
   const history = await novarum.listMessages(message.channelId, config.contextMessages).catch(() => []);
-  const existingThread = threadInChain(message, new Map(history.map((m) => [m.id, m])));
+  const byId = new Map(history.map((m) => [m.id, m]));
+  const existingThread = threadInChain(message, byId);
   const flags = parseFlags(stripTriggers(message.content));
   const request = flags.request;
 
@@ -219,11 +250,17 @@ async function handle(message: Message) {
     }, Math.max(0, PROGRESS_EVERY_MS - (Date.now() - lastEdit)));
   };
 
+  // Replying to a message with an image (or any file) hands that file to Amp along with the request.
+  const repliedTo = message.replyTo ? byId.get(message.replyTo) : undefined;
+  const attachments = [...message.attachments, ...(repliedTo?.attachments ?? [])];
+  const attachmentDir = `${config.dataDir}/attachments/${crypto.randomUUID()}`;
+
   void novarum.typing(message.channelId).catch(() => {});
   const typing = setInterval(() => void novarum.typing(message.channelId).catch(() => {}), TYPING_EVERY_MS);
 
   try {
-    const prompt = buildPrompt(message, request, history, existingThread);
+    const uploaded = await downloadAttachments(attachments, attachmentDir);
+    const prompt = buildPrompt(message, request, history, existingThread, attachments, uploaded);
     console.log(`${author} -> ${existingThread ? `continue ${existingThread}` : 'new thread'}: ${request.slice(0, 80)}`);
 
     const result = await runAmp(
@@ -233,6 +270,7 @@ async function handle(message: Message) {
         title: request.split('\n')[0] || 'Novarum request',
         model,
         effort: effort as Effort | undefined,
+        attach: [...uploaded.values()],
         signal: controller.signal,
       },
       {
@@ -267,6 +305,7 @@ async function handle(message: Message) {
   } finally {
     clearInterval(typing);
     clearTimeout(pendingEdit);
+    await rm(attachmentDir, { recursive: true, force: true }).catch(() => {});
     running.delete(runKey);
     if (threadId) running.delete(threadId);
   }

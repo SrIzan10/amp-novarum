@@ -19,6 +19,10 @@ the result.
 - Like Slack's byline, every answer ends with whose Amp replied and an **Open in Amp** link.
 - While Amp works, the bot shows a typing indicator and a status message that it edits as Amp
   runs tools. When the run ends, it deletes the status message and replies with the answer.
+- **Attachments:** reply to a message with an image (or any file) and mention the bot, and that file
+  is uploaded to the Amp thread as an attachment on your request, along with any files on your own
+  message. This uses the CLI's `--attach`, which the SDK doesn't expose yet, so
+  `patches/@ampcode%2Fsdk@*.patch` adds an `attach` option to `execute`.
 - Reply `stop` or `cancel` to a thread's message to abort the running turn.
 - **Model and effort:** `@bot model opus` and `@bot effort high` change the defaults (kept in
   `settings.json` in the data dir). `@bot model` or `@bot effort` alone shows the current value, and

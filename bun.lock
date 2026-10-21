@@ -16,6 +16,9 @@
   "trustedDependencies": [
     "@ampcode/cli",
   ],
+  "patchedDependencies": {
+    "@ampcode/sdk@0.1.0-20260918210405-g81edbf0": "patches/@ampcode%2Fsdk@0.1.0-20260918210405-g81edbf0.patch",
+  },
   "packages": {
     "@ampcode/cli": ["@ampcode/cli@0.0.1792324855-g9c86a5", "", { "optionalDependencies": { "@ampcode/cli-darwin-arm64": "0.0.1792324855-g9c86a5", "@ampcode/cli-darwin-x64": "0.0.1792324855-g9c86a5", "@ampcode/cli-linux-arm64": "0.0.1792324855-g9c86a5", "@ampcode/cli-linux-x64": "0.0.1792324855-g9c86a5", "@ampcode/cli-win32-x64": "0.0.1792324855-g9c86a5" }, "bin": { "amp": "bin/amp.exe" } }, "sha512-7qQtPjjnHCrBMEIsglrm6BhBhkEiWU6sZO4lwSjTy1m/co1hxhdfOImFawV1vXADhzaWAbP66SsMFoPgn2tiTg=="],
 

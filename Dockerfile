@@ -2,6 +2,7 @@ FROM oven/bun:1.4.2-slim AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
+COPY patches ./patches
 # Runs @ampcode/cli's trusted postinstall, which links the native amp binary.
 RUN bun install --frozen-lockfile --production
 

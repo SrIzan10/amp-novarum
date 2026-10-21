@@ -38,7 +38,14 @@ function describe(message: StreamMessage): string | undefined {
 /** Runs one turn of Amp in an orb or on a runner, starting a new thread or continuing `threadId`. */
 export async function runAmp(
   prompt: string,
-  { threadId, title, model, effort, signal }: { threadId?: string; title?: string; model?: string; effort?: Effort; signal: AbortSignal },
+  {
+    threadId,
+    title,
+    model,
+    effort,
+    attach,
+    signal,
+  }: { threadId?: string; title?: string; model?: string; effort?: Effort; attach?: string[]; signal: AbortSignal },
   callbacks: RunCallbacks
 ): Promise<RunResult> {
   let currentThread = threadId;
@@ -73,6 +80,8 @@ export async function runAmp(
         visibility: config.ampVisibility,
         labels: threadId ? undefined : ['novarum'],
         noArchiveAfterExecute: true,
+        // Local files the CLI uploads to the thread as attachments on this message.
+        attach: attach?.length ? attach : undefined,
         env: { AMP_API_KEY: config.ampApiKey, ...(dataHome && { XDG_DATA_HOME: dataHome }) },
       },
     })) {
