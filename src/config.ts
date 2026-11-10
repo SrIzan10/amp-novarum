@@ -7,9 +7,9 @@ function list(value: string | undefined) {
   return (value ?? '').split(',').filter((item) => item.trim()).map(normalizeHandle);
 }
 
-function single(name: string) {
+function requiredHandle(name: string) {
   const value = process.env[name]?.trim();
-  if (!value) return undefined;
+  if (!value) throw new Error(`Missing required env var ${name} (see .env.example)`);
   if (value.includes(',')) throw new Error(`${name} takes exactly one handle`);
   return normalizeHandle(value);
 }
@@ -21,16 +21,14 @@ function required(name: string) {
 }
 
 export const config = {
+  // The Anchor homeserver the bot lives on, and the bot token from the developer panel.
   novarumUrl: (process.env.NOVARUM_URL ?? 'https://orwell.ing').replace(/\/+$/, ''),
-  sessionToken: process.env.NOVARUM_SESSION_TOKEN,
-  username: process.env.NOVARUM_USERNAME,
-  password: process.env.NOVARUM_PASSWORD,
+  botToken: required('NOVARUM_BOT_TOKEN'),
 
   // The one Novarum handle (@user:homeserver) allowed to drive Amp. Your API key pays for every
-  // run, so this defaults to the account the bot is logged in as.
-  ownerHandle: single('OWNER_HANDLE'),
-  // Extra handles that trigger the bot besides its own (e.g. your own handle if you run it on a
-  // separate account but also want "@you" to work).
+  // run, so only this person can start runs, change settings, or press Stop.
+  ownerHandle: requiredHandle('OWNER_HANDLE'),
+  // Extra handles that trigger the bot besides its own.
   extraTriggerHandles: list(process.env.TRIGGER_HANDLES),
 
   ampApiKey: required('AMP_API_KEY'),

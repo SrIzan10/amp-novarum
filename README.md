@@ -1,13 +1,13 @@
 # novarum-amp
 
-A Novarum userbot that works like Amp's Slack integration: ping it in a server channel and it
+A Novarum bot, built on [`@novarum/sdk`](https://www.npmjs.com/package/@novarum/sdk), that works like Amp's Slack integration: ping it in a server channel and it
 runs an Amp agent in an **orb** (Amp's remote sandbox) with your API key, then replies with
 the result.
 
 ## How it works
 
-- Logs in to Novarum (`orwell.ing`) as a normal user account and listens on the `/realtime/`
-  WebSocket for `message.created` events.
+- Connects to Novarum (`orwell.ing`) as a bot with a token from the developer panel, and listens
+  for new messages and interactions through the SDK.
 - **Mention** the account (`@amp:orwell.ing do X`) in a server channel to start a new Amp thread.
   DMs are ignored completely. The last `CONTEXT_MESSAGES` messages in the channel go to Amp as
   context, along with signed attachment URLs.
@@ -16,20 +16,22 @@ the result.
 - **Reply** to any of the bot's messages, or mention it anywhere further down the same reply chain,
   to continue that Amp thread, just as re-mentioning @Amp in a Slack thread does. Amp also gets the
   messages other people posted since its last reply.
-- Like Slack's byline, every answer ends with whose Amp replied and an **Open in Amp** link.
+- Like Slack's byline, every answer ends with whose Amp replied, with an **Open in Amp** link button.
 - While Amp works, the bot shows a typing indicator and a status message that it edits as Amp
-  runs tools. When the run ends, it deletes the status message and replies with the answer.
+  runs tools, with a **Stop** button. When the run ends, it deletes the status message and replies
+  with the answer. A failed run is reported in a red embed.
 - **Attachments:** reply to a message with an image (or any file) and mention the bot, and that file
   is uploaded to the Amp thread as an attachment on your request, along with any files on your own
   message. This uses the CLI's `--attach`, which the SDK doesn't expose yet, so
   `patches/@ampcode%2Fsdk@*.patch` adds an `attach` option to `execute`.
-- Reply `stop` or `cancel` to a thread's message to abort the running turn.
-- **Model and effort:** `@bot model opus` and `@bot effort high` change the defaults (kept in
-  `settings.json` in the data dir). `@bot model` or `@bot effort` alone shows the current value, and
-  `reset` goes back to `AMP_MODEL` / `AMP_EFFORT`. For a single run, put flags before the request:
+- Press **Stop** on the status message, or reply `stop` / `cancel` to a thread's message, to abort the
+  running turn.
+- **Model and effort:** the `/model` and `/effort` slash commands change the defaults (kept in
+  `settings.json` in the data dir). With no argument they show the current value, and `reset` goes
+  back to `AMP_MODEL` / `AMP_EFFORT`. `/model` autocompletes aliases; `@bot model opus` in chat still works. For a single run, put flags before the request:
   `@bot --model sonnet --effort low fix the typo` (`-m` and `-e` work too). The model only applies to
   external agents like Claude Code.
-- Only `OWNER_HANDLE` can trigger it. If that's empty, only the bot's own account can.
+- Only `OWNER_HANDLE` can trigger it, use the slash commands, or press Stop. It's required.
 
 By default the agent is **Claude Code** (`AMP_MODE=external-agent:claude-code`). To run on one of
 your own machines instead of an orb, set `AMP_RUNNER_ID` to an `amp --no-tui` runner and
@@ -44,7 +46,7 @@ the bundled Amp CLI.
 
 ```bash
 bun install
-cp .env.example .env   # fill in AMP_API_KEY and Novarum credentials
+cp .env.example .env   # fill in AMP_API_KEY, NOVARUM_BOT_TOKEN and OWNER_HANDLE
 bun start
 ```
 
@@ -52,16 +54,9 @@ bun start
 
 ```bash
 cp .env.example .env              # fill it in
-docker compose run --rm novarum-amp   # first run only if you need to type an MFA code
 docker compose up -d --build
 ```
 
-The session and thread map persist in the `data` volume, mounted at `/data`.
+The thread map and settings persist in the `data` volume, mounted at `/data`.
 
-### Running it on your own account
-
-If you log in as yourself, the bot answers when you ping your own handle. It never reacts to
-messages it sent itself, and it ignores DMs entirely. It reports itself as a
-backgrounded client, so your other devices keep getting push notifications.
-
-State (session token, Novarum message → Amp thread map) lives in `.data/`.
+State (Novarum message → Amp thread map, model/effort settings) lives in `.data/`.

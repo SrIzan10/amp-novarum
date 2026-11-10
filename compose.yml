@@ -6,9 +6,6 @@ services:
     env_file: .env
     volumes:
       - data:/data
-    # Lets you type an MFA code on first login: `docker compose run --rm novarum-amp`
-    stdin_open: true
-    tty: true
 
 volumes:
   data:
